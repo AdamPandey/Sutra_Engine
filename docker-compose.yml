@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Our Node.js API Service
+  api:
+    build: .
+    ports:
+      - "5001:5000"
+    volumes:
+      # This syncs our local code into the container for live development
+      - .:/usr/src/app
+      # This prevents our local node_modules from overwriting the container's
+      - /usr/src/app/node_modules
+    environment:
+      # These are the addresses the API will use to find the databases
+      - DB_HOST=db_mysql
+      - MONGO_URI=mongodb://db_mongo:27017/aetheria_mongo
+    depends_on:
+      - db_mysql
+      - db_mongo
+    # Use nodemon for live reloading during development
+    command: npx nodemon server.js
+
+  # MySQL Database Service
+  db_mysql:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: your_super_secret_password # Change this later
+      MYSQL_DATABASE: aetheria_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # MongoDB Database Service
+  db_mongo:
+    image: mongo:latest
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+
+# These 'volumes' at the end tell Docker to save the database data
+# even if we stop the containers.
+volumes:
+  mysql_data:
+  mongo_data:

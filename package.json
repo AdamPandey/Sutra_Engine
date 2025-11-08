@@ -1,0 +1,31 @@
+{
+  "name": "sutra-engine-core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "docker compose up --build",
+    "start:detached": "docker compose up --build -d",
+    "stop": "docker compose down",
+    "logs": "docker compose logs -f api"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.3",
+    "mysql2": "^3.15.3",
+    "pg": "^8.16.3",
+    "sequelize": "^6.37.7",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "nodemo": "^1.0.0",
+    "nodemon": "^3.1.10"
+  }
+}
