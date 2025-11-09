@@ -2,9 +2,8 @@
 module.exports = (sequelize, Sequelize) => {
   const User = sequelize.define('user', {
     id: {
-      // FIX: The ID must be a UUID to match the other tables.
       type: Sequelize.UUID,
-      defaultValue: Sequelize.UUIDV4, // This tells the DB to auto-generate the UUID string
+      defaultValue: Sequelize.UUIDV4,
       primaryKey: true,
     },
     email: {
@@ -20,11 +19,13 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING
     }
   }, {
-    tableName: 'users', // It's good practice to name the table
+    // --- THIS IS THE CRITICAL FIX ---
+    // Explicitly tell Sequelize the name of the table.
+    // This removes any ambiguity that could cause sync to fail.
+    tableName: 'users',
     timestamps: true
   });
 
-  // It's also good practice to define both sides of the relationship
   User.associate = (models) => {
     User.hasMany(models.world, { foreignKey: 'userId' });
     User.hasMany(models.gameSession, { foreignKey: 'userId' });
