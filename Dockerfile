@@ -1,18 +1,13 @@
+# Dockerfile
 FROM node:22-alpine
-# Set the working directory inside the container
- WORKDIR /usr/src/app
 
- # Copy package.json and package-lock.json first to leverage Docker's layer caching
- COPY package*.json ./
+WORKDIR /usr/src/app
 
- # Install project dependencies
- RUN npm install
+COPY package*.json ./
+RUN npm install --only=production
 
- # Copy the rest of your application's source code
- COPY . .
+COPY . .
 
- # Expose the port the app runs on
- EXPOSE 5000
+EXPOSE 5001
 
- # The command to run when the container starts
- CMD [ "node", "server.js" ]
+CMD ["node", "server.js"]
