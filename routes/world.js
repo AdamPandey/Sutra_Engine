@@ -1,11 +1,13 @@
+const express = require('express');
+const router = express.Router();
 const controller = require("../controllers/world.controller");
 const { verifyToken } = require("../middleware/authJwt");
 
-module.exports = function(app) {
-  app.post("/api/worlds", [verifyToken], controller.createWorld);
-  app.get("/api/worlds", [verifyToken], controller.getAllWorlds);
-  app.get("/api/worlds/:id", [verifyToken], controller.getOneWorld);
-  app.put("/api/worlds/:id", [verifyToken], controller.updateWorld);
-  app.delete("/api/worlds/:id", [verifyToken], controller.deleteWorld);
-  app.patch("/api/worlds/:id", [verifyToken], controller.patchWorld);
-};
+router.post("/", [verifyToken], controller.createWorld);
+router.get("/", [verifyToken], controller.getAllWorlds);
+router.get("/:id", [verifyToken], controller.getOneWorld);
+router.put("/:id", [verifyToken], controller.updateWorld);
+router.delete("/:id", [verifyToken], controller.deleteWorld);
+router.patch("/:id", [verifyToken], controller.patchWorld);
+
+module.exports = router;

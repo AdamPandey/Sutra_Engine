@@ -1,93 +1,67 @@
-// // server.js
-// const express = require('express');
-// const cors = require('cors');
-// // const { db, connectMongo, connectMySQLWithRetry } = require('./config/db');
-
-// const app = express();
-// const PORT = process.env.PORT || 5001;   // matches .env
-
-// app.use(cors());
-// app.use(express.json());
-
-// // ---------------------------------------------------
-// // 1. Start MongoDB (fire‑and‑forget)
-// // ---------------------------------------------------
-// connectMongo();
-
-// // ---------------------------------------------------
-// // 2. Wait for MySQL, then sync tables
-// // ---------------------------------------------------
-// (async () => {
-//   try {
-//     await connectMySQLWithRetry();          // <-- retry loop
-//     await db.sequelize.sync({ force: false, alter: true });
-//     console.log('MySQL tables synced.');
-//   } catch (err) {
-//     console.error('Failed to start MySQL:', err);
-//     process.exit(1);
-//   }
-
-//   // ---------------------------------------------------
-//   // 3. Routes
-//   // ---------------------------------------------------
-//   app.get('/', (req, res) => res.json({ message: 'Sutra Engine Core is online.' }));
-//   require('./routes/auth.routes')(app);
-//   require('./routes/world.routes')(app);
-
-//   // ---------------------------------------------------
-//   // 4. Listen
-//   // ---------------------------------------------------
-//   app.listen(PORT, '0.0.0.0', () => {
-//     console.log(`Server is running on port ${PORT}`);
-//   });
-// })();
-
-// require('./jobs/worldGeneration.job'); // starts worker
-
-// server.js — REPLACE THE OLD BLOCK WITH THIS
 // app.js
 const express = require('express');
 const cors = require('cors');
-const { sequelize, connectMongo } = require('./config/db'); // Removed queue, it's used in the job file
+// Only require what you need at the top level
+const { sequelize, connectMongo } = require('./config/db'); 
 
+// Create the app instance
 const app = express();
+
+// Apply global middleware
 app.use(cors());
 app.use(express.json());
 
+// A simple health-check route
 app.get('/', (req, res) => {
   res.send('Sutra Engine Core is online');
 });
 
-// --- THIS IS THE FIX ---
-// Instead of using app.use(), we call the functions from our route files
-// and pass the 'app' object to them so they can set up the routes.
-require('./routes/auth')(app);
-require('./routes/world')(app);
-// -----------------------
 
-// Start server
-async function startServer() {
+// --- THE CRITICAL FIX IS HERE ---
+// Do NOT require your route files at the top.
+// Instead, create a function to initialize everything,
+// and require them *inside* that function.
+// This ensures that the database is connected and models are loaded
+// BEFORE the routes (which depend on the models) are ever touched.
+
+async function initialize() {
   try {
+    // 1. Connect to the databases and sync models
     console.log('Authenticating database connection...');
     await sequelize.authenticate();
     console.log('Syncing database models...');
-    await sequelize.sync({ alter: true }); // Using alter is fine for dev, consider migrations for prod
+    await sequelize.sync({ alter: true });
     console.log('PostgreSQL connected and synced.');
-
     await connectMongo();
 
-    // The worker setup can stay here if you want to run it in the same process
-    // For bigger apps, this would be a separate service
-    require('./jobs/worldGeneration.job');
+    // 2. NOW that the models are ready, load the routes
+    console.log('Initializing routes...');
+    const authRoutes = require('./routes/auth');
+    const worldRoutes = require('./routes/world');
+    app.use('/api/auth', authRoutes);
+    app.use('/api/worlds', worldRoutes);
+    console.log('Routes initialized.');
 
+    // 3. Start the BullMQ worker
+    // Note: In a large application, this worker would be its own separate process.
+    console.log('Starting background worker...');
+    require('./jobs/worldGeneration.job'); 
+    console.log('Worker started.');
+
+    // 4. Start the server
     const PORT = process.env.PORT || 5001;
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`Server is running on port ${PORT}. Application is ready.`);
     });
+
   } catch (err) {
-    console.error('Failed to start server:', err);
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.error('!!!    APPLICATION FAILED TO START   !!!');
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.error(err);
     process.exit(1);
   }
 }
 
-startServer();
+// Call the function to start the entire process
+initialize();
