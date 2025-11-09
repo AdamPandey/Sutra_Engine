@@ -1,15 +1,20 @@
-const mongoose = require('mongoose');
+// models/worldContent.model.js
+const mongoose = require("mongoose");
 
-const WorldContentSchema = new mongoose.Schema({
-  worldId: { // This links back to the ID in the MySQL 'worlds' table
-    type: String,
-    required: true,
-    unique: true,
+const WorldContentSchema = new mongoose.Schema(
+  {
+    worldId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,                     // fast lookup + FK-like
+    },
+    generatedContent: {
+      type: Object,
+      required: true,
+    },
   },
-  generatedContent: { // This will hold the big, complex JSON from your "LLM"
-    type: Object,
-    required: true,
-  },
-}, { timestamps: true });
+  { timestamps: true }                // createdAt + updatedAt
+);
 
-module.exports = mongoose.model('WorldContent', WorldContentSchema);
+module.exports = mongoose.model("WorldContent", WorldContentSchema);

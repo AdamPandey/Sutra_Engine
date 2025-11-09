@@ -1,3 +1,4 @@
+// controllers/auth.controller.js
 const { db } = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -25,7 +26,10 @@ exports.login = async (req, res) => {
     const passwordIsValid = bcrypt.compareSync(req.body.password, user.password);
     if (!passwordIsValid) return res.status(401).send({ accessToken: null, message: "Invalid Password!" });
 
-    const token = jwt.sign({ id: user.id }, "your-super-secret-key-change-this", { expiresIn: 86400 });
+    // FIXED: Use process.env.JWT_SECRET
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+      expiresIn: 86400, // 24 hours
+    });
 
     res.status(200).send({
       id: user.id,

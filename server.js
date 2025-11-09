@@ -1,24 +1,45 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
-const { db, connectMongo } = require('./config/db');
+const { db, connectMongo, connectMySQLWithRetry } = require('./config/db');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;   // matches .env
 
 app.use(cors());
 app.use(express.json());
 
-// --- INITIALIZE DATABASES ---
-db.sequelize.sync()
-  .then(() => console.log("MySQL Synced."))
-  .catch(err => console.log("MySQL Sync error:", err));
+// ---------------------------------------------------
+// 1. Start MongoDB (fire‑and‑forget)
+// ---------------------------------------------------
 connectMongo();
 
-// --- ROUTES ---
-app.get('/', (req, res) => res.json({ message: 'Sutra Engine Core is online.' }));
-require('./routes/auth.routes')(app);
-require('./routes/world.routes')(app);
+// ---------------------------------------------------
+// 2. Wait for MySQL, then sync tables
+// ---------------------------------------------------
+(async () => {
+  try {
+    await connectMySQLWithRetry();          // <-- retry loop
+    await db.sequelize.sync({ force: false, alter: true });
+    console.log('MySQL tables synced.');
+  } catch (err) {
+    console.error('Failed to start MySQL:', err);
+    process.exit(1);
+  }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  // ---------------------------------------------------
+  // 3. Routes
+  // ---------------------------------------------------
+  app.get('/', (req, res) => res.json({ message: 'Sutra Engine Core is online.' }));
+  require('./routes/auth.routes')(app);
+  require('./routes/world.routes')(app);
+
+  // ---------------------------------------------------
+  // 4. Listen
+  // ---------------------------------------------------
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+})();
+
+require('./jobs/worldGeneration.job'); // starts worker

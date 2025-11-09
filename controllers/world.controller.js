@@ -1,6 +1,9 @@
+// controllers/world.controller.js
 const { db } = require("../config/db");
 const World = db.world;
 const WorldContent = require("../models/worldContent.model");
+const { worldGenerationQueue } = require("../jobs/worldGeneration.job");
+const eventBus = require("../events/worldEvents");
 
 // CREATE
 exports.createWorld = async (req, res) => {
@@ -8,58 +11,142 @@ exports.createWorld = async (req, res) => {
     const world = await World.create({
       name: req.body.name,
       theme: req.body.theme,
+      status: "Queued",
+      engine_version: req.body.engine_version || "Unreal Engine 5.4",
+      pcg_seed: req.body.pcg_seed || Math.floor(Math.random() * 999999999),
+      userId: req.userId,
     });
-    // In Assignment #2, you would fire your `WorldGenerationRequested` event here.
+
+    // Trigger AI generation job
+    await worldGenerationQueue.add("generate-world", { worldId: world.id });
+
+    // Optional: emit event
+    eventBus.emit("WorldGenerationRequested", world);
+
     res.status(201).json(world);
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    console.error("Create world failed:", error);
+    res.status(500).json({ message: error.message || "Failed to create world" });
   }
 };
 
-// READ ALL
+// READ ALL (owned by user)
 exports.getAllWorlds = async (req, res) => {
-  const worlds = await World.findAll();
-  res.json(worlds);
+  try {
+    const worlds = await World.findAll({
+      where: { userId: req.userId },
+      attributes: [
+        "id",
+        "name",
+        "theme",
+        "status",
+        "engine_version",
+        "pcg_seed",
+        "createdAt",
+        "updatedAt",
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+    res.json(worlds);
+  } catch (error) {
+    console.error("Get worlds failed:", error);
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // READ ONE
 exports.getOneWorld = async (req, res) => {
-  const world = await World.findByPk(req.params.id);
-  if (!world) return res.status(404).json({ message: 'World not found' });
-  res.json(world);
+  try {
+    const world = await World.findOne({
+      where: { id: req.params.id, userId: req.userId },
+      attributes: [
+        "id",
+        "name",
+        "theme",
+        "status",
+        "engine_version",
+        "pcg_seed",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+
+    if (!world) {
+      return res.status(404).json({ message: "World not found or unauthorized" });
+    }
+
+    res.json(world);
+  } catch (error) {
+    console.error("Get world failed:", error);
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// UPDATE
+// UPDATE (PUT) — Full Replace
 exports.updateWorld = async (req, res) => {
-  const world = await World.findByPk(req.params.id);
-  if (!world) return res.status(404).json({ message: 'World not found' });
-  
-  await world.update({
-    name: req.body.name,
-    theme: req.body.theme,
-    status: req.body.status,
-  });
-  res.json(world);
+  try {
+    const world = await World.findOne({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!world) {
+      return res.status(404).json({ message: "World not found or unauthorized" });
+    }
+
+    await world.update({
+      name: req.body.name ?? world.name,
+      theme: req.body.theme ?? world.theme,
+      status: req.body.status ?? world.status,
+      engine_version: req.body.engine_version ?? world.engine_version,
+      pcg_seed: req.body.pcg_seed ?? world.pcg_seed,
+    });
+
+    res.json(world);
+  } catch (error) {
+    console.error("Update world failed:", error);
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// DELETE
-exports.deleteWorld = async (req, res) => {
-  const world = await World.findByPk(req.params.id);
-  if (!world) return res.status(404).json({ message: 'World not found' });
-
-  await world.destroy();
-  // Here is your complex deletion logic: also delete from MongoDB
-  await WorldContent.deleteOne({ worldId: req.params.id });
-  
-  res.status(204).send(); // 204 No Content is the standard for a successful delete
-};
-
+// PATCH — Partial Update
 exports.patchWorld = async (req, res) => {
-  const world = await World.findByPk(req.params.id);
-  if (!world) return res.status(404).json({ message: 'World not found' });
-  
-  // This will update only the fields that are in the request body
-  await world.update(req.body);
-  
-  res.json(world);
+  try {
+    const world = await World.findOne({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!world) {
+      return res.status(404).json({ message: "World not found or unauthorized" });
+    }
+
+    await world.update(req.body); // Only updates provided fields
+    res.json(world);
+  } catch (error) {
+    console.error("Patch world failed:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE — With MongoDB + MySQL cleanup
+exports.deleteWorld = async (req, res) => {
+  try {
+    const world = await World.findOne({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!world) {
+      return res.status(404).json({ message: "World not found or unauthorized" });
+    }
+
+    // 1. Delete from MongoDB
+    await WorldContent.deleteOne({ worldId: req.params.id });
+
+    // 2. Delete from MySQL (cascades to assets, sessions, metrics)
+    await world.destroy();
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Delete world failed:", error);
+    res.status(500).json({ message: error.message });
+  }
 };
