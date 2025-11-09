@@ -50,7 +50,7 @@ const express = require('express');
 const cors = require('cors');
 const { sequelize, connectMongo, queue } = require('./config/db');
 const authRoutes = require('./routes/auth');
-const worldRoutes = require('./routes/worlds');
+const worldRoutes = require('./routes/world');
 
 const app = express();
 app.use(cors());
