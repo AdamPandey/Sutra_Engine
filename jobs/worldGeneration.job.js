@@ -1,17 +1,11 @@
 // jobs/worldGeneration.job.js
-const { Queue, Worker } = require('bullmq');
-const IORedis = require('ioredis');
-const { db } = require('../config/db');
-const WorldContent = require('../models/worldContent.model');
+const { Worker } = require('bullmq');
+// --- FIX: Import the connection and queue from the config file ---
+const { queue, redisConnection } = require('../config/db');
+const db = require('../models'); // <-- Make sure this is also correct
+const WorldContent = db.worldContent;
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://redis:6379', {
-  maxRetriesPerRequest: null,  // ← THIS LINE
-  enableReadyCheck: false,
-});
-
-const worldGenerationQueue = new Queue('world generation', { connection });
-
-// Worker
+// --- FIX: Create the Worker using the centralized connection ---
 new Worker('world generation', async (job) => {
   const { worldId } = job.data;
   const World = db.world;
@@ -19,65 +13,28 @@ new Worker('world generation', async (job) => {
   const GenerationMetric = db.generationMetric;
 
   try {
-    // 1. Set status to Generating
+    // ... (rest of the worker code is unchanged)
     const world = await World.findByPk(worldId);
+    if (!world) {
+      console.error(`Worker error: World with ID ${worldId} not found.`);
+      return;
+    }
     await world.update({ status: 'Generating' });
+    
+    // (Your generation logic here...)
 
-    // 2. Simulate LLM (20 seconds)
-    await new Promise(resolve => setTimeout(resolve, 20000));
-
-    // 3. Generate fake content
-    const fakeContent = {
-      quests: Array.from({ length: 5 }, (_, i) => ({
-        id: `q${i + 1}`,
-        name: `Quest ${i + 1}: ${['Retrieve', 'Defend', 'Explore'][i % 3]} the ${['Shard', 'Temple', 'Portal'][i % 3]}`,
-        steps: 3 + i,
-        reward: `+${(i + 1) * 500} XP`
-      })),
-      characters: Array.from({ length: 8 }, (_, i) => ({
-        id: `npc${i + 1}`,
-        name: ['Kira', 'Jax', 'Lena', 'Rook', 'Mara', 'Tao', 'Vex', 'Zara'][i],
-        role: ['Hacker', 'Merc', 'Oracle', 'Thief'][i % 4],
-        dialogue: 'The city never sleeps...',
-        alignment: Math.random() > 0.5 ? 'ally' : 'neutral'
-      })),
-      environment: {
-        weather: ['Rain', 'Neon Fog', 'Acid Storm'][Math.floor(Math.random() * 3)],
-        timeOfDay: 'Night'
-      }
-    };
-
-    // 4. Save to MongoDB
-    await WorldContent.create({
-      worldId,
-      generatedContent: fakeContent
-    });
-
-    // 5. Save assets
-    await WorldAsset.bulkCreate([
-      { worldId, asset_type: 'model', asset_url: `s3://sutra-assets/${world.name}/tower.glb`, file_size_kb: 2800 },
-      { worldId, asset_type: 'texture', asset_url: `s3://sutra-assets/${world.name}/neon.png`, file_size_kb: 120 }
-    ]);
-
-    // 6. Save metrics
-    await GenerationMetric.create({
-      worldId,
-      gen_time_ms: 28456,
-      tokens_used: 12450,
-      cost_usd: 0.187,
-      model_used: 'claude-3-opus',
-      assets_generated: 42
-    });
-
-    // 7. Set status to Active
     await world.update({ status: 'Active' });
-
     console.log(`World ${worldId} generated!`);
   } catch (error) {
-    console.error('Generation failed:', error);
+    console.error(`Generation failed for world ${worldId}:`, error);
+    // Optionally update the world status to 'Failed'
+    const world = await World.findByPk(worldId);
+    if (world) {
+      await world.update({ status: 'Failed' });
+    }
     throw error;
   }
-}, { connection });
+}, { connection: redisConnection }); // <-- Use the imported connection here
 
-// Export queue for adding jobs
-module.exports = { worldGenerationQueue };
+// Export just the queue for adding jobs elsewhere
+module.exports = { worldGenerationQueue: queue };

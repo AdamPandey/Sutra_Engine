@@ -1,41 +1,39 @@
+// config/db.js
 const { Sequelize } = require('sequelize');
 const mongoose = require('mongoose');
 const { Queue } = require('bullmq');
+const IORedis = require('ioredis'); // <-- Add this
 require('dotenv').config();
 
 let sequelize;
 
 try {
-  // Check if the variable exists first
   if (!process.env.DATABASE_URL) {
     throw new Error('FATAL: DATABASE_URL environment variable is not set!');
   }
-
   console.log('Attempting to connect to the database...');
-  
-  // Initialize Sequelize
   sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'postgres',
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
-    },
-    logging: false // Keep this false for now to avoid too much noise
+    dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
+    logging: false
   });
-  
   console.log('Sequelize instance created successfully.');
-
 } catch (error) {
-  // THIS IS THE CODE THAT WILL SAVE YOU
-  console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   console.error('!!! DATABASE CONNECTION FAILED IN config/db.js !!!');
-  console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-  console.error('The raw error object is:', error);
-  // We must exit here, otherwise the app will continue in a broken state
+  console.error(error);
   process.exit(1);
 }
+
+// --- FIX: Centralize the Redis Connection ---
+if (!process.env.REDIS_URL) {
+  throw new Error('FATAL: REDIS_URL environment variable is not set!');
+}
+const redisConnection = new IORedis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+console.log('Redis connection instance created.');
+// ------------------------------------------
 
 // MongoDB
 async function connectMongo() {
@@ -48,9 +46,8 @@ async function connectMongo() {
   }
 }
 
-// Redis Queue
-const queue = new Queue('world-generation', {
-  connection: process.env.REDIS_URL,
-});
+// Redis Queue - Now uses the centralized connection
+const queue = new Queue('world-generation', { connection: redisConnection });
 
-module.exports = { sequelize, connectMongo, queue };
+// Export everything
+module.exports = { sequelize, connectMongo, queue, redisConnection };

@@ -1,5 +1,5 @@
 // controllers/world.controller.js
-const { db } = require("../models");
+const db = require("../models");
 const World = db.world;
 const WorldContent = require("../models/worldContent.model");
 const { worldGenerationQueue } = require("../jobs/worldGeneration.job");
