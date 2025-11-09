@@ -1,6 +1,6 @@
 // seeders/seed.js
 require('dotenv').config();
-const bcrypt = require('bcryptjs');
+const bcryptjs = require('bcryptjs');
 const { db, connectMongo, connectMySQLWithRetry } = require('../config/db');
 const WorldContent = db.worldContent;
 
@@ -35,7 +35,7 @@ const seedDatabase = async () => {
       id: '0718fe25-5b8b-4b3f-8091-c006dca9d265',  // ← FORCE THIS ID
       username: 'Adam',
       email: 'adam@sutra.ai',
-      password: bcrypt.hashSync('password123', 8),
+      password: bcryptjs.hashSync('password123', 8),
     });
 
     // ---------------------------------------------------
