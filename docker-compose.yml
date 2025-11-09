@@ -2,7 +2,7 @@ services:
   api:
     build: .
     ports:
-      - "5001:5001"          # matches your .env PORT
+      - "10000:5001"          # matches your .env PORT
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
