@@ -48,9 +48,7 @@
 // app.js
 const express = require('express');
 const cors = require('cors');
-const { sequelize, connectMongo, queue } = require('./config/db');
-const authRoutes = require('./routes/auth');
-const worldRoutes = require('./routes/world');
+const { sequelize, connectMongo } = require('./config/db'); // Removed queue, it's used in the job file
 
 const app = express();
 app.use(cors());
@@ -60,23 +58,27 @@ app.get('/', (req, res) => {
   res.send('Sutra Engine Core is online');
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/worlds', worldRoutes);
+// --- THIS IS THE FIX ---
+// Instead of using app.use(), we call the functions from our route files
+// and pass the 'app' object to them so they can set up the routes.
+require('./routes/auth')(app);
+require('./routes/world')(app);
+// -----------------------
 
 // Start server
 async function startServer() {
   try {
+    console.log('Authenticating database connection...');
     await sequelize.authenticate();
-    await sequelize.sync({ alter: true });
+    console.log('Syncing database models...');
+    await sequelize.sync({ alter: true }); // Using alter is fine for dev, consider migrations for prod
     console.log('PostgreSQL connected and synced.');
 
     await connectMongo();
 
-    const { Worker } = require('bullmq');
-    const worldGenerationWorker = require('./workers/worldGenerationWorker');
-    new Worker('world-generation', worldGenerationWorker, {
-      connection: queue.connection,
-    });
+    // The worker setup can stay here if you want to run it in the same process
+    // For bigger apps, this would be a separate service
+    require('./jobs/worldGeneration.job');
 
     const PORT = process.env.PORT || 5001;
     app.listen(PORT, () => {
