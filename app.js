@@ -45,30 +45,40 @@
 // require('./jobs/worldGeneration.job'); // starts worker
 
 // server.js — REPLACE THE OLD BLOCK WITH THIS
+// app.js
+const express = require('express');
+const cors = require('cors');
 const { sequelize, connectMongo, queue } = require('./config/db');
-const app = require('./app');
+const authRoutes = require('./routes/auth');
+const worldRoutes = require('./routes/worlds');
 
-const PORT = process.env.PORT || 5001;
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// Start server + DBs
+app.get('/', (req, res) => {
+  res.send('Sutra Engine Core is online');
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/worlds', worldRoutes);
+
+// Start server
 async function startServer() {
   try {
-    // 1. Connect to Postgres (via Sequelize)
     await sequelize.authenticate();
     await sequelize.sync({ alter: true });
     console.log('PostgreSQL connected and synced.');
 
-    // 2. Connect to MongoDB
     await connectMongo();
 
-    // 3. Start BullMQ worker (for world generation)
     const { Worker } = require('bullmq');
     const worldGenerationWorker = require('./workers/worldGenerationWorker');
     new Worker('world-generation', worldGenerationWorker, {
       connection: queue.connection,
     });
 
-    // 4. Start Express
+    const PORT = process.env.PORT || 5001;
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
