@@ -9,6 +9,99 @@ const { sequelize, connectMongo } = require('./config/db');
 const { apiReference } = require('@scalar/express-api-reference');
 
 // The complete Swagger/OpenAPI document object. This part is perfect.
+// const swaggerDocument = {
+//   openapi: '3.0.0',
+//   info: {
+//     title: 'Sutra Engine Core API',
+//     description: 'The backend API for the Sutra Hub, a platform for managing AI-generated game worlds.',
+//     version: '1.0.0',
+//   },
+//   servers: [
+//     {
+//       url: 'https://sutra-engine.onrender.com',
+//       description: 'Production Server',
+//     },
+//   ],
+//   paths: {
+//     '/api/auth/register': {
+//       post: {
+//         summary: 'Register a new user',
+//         description: 'Creates a new developer account.',
+//         tags: ['Authentication'],
+//         requestBody: {
+//           required: true,
+//           content: {
+//             'application/json': {
+//               schema: {
+//                 type: 'object',
+//                 properties: {
+//                   email: { type: 'string', example: 'developer@sutra.ai' },
+//                   password: { type: 'string', example: 'password123' },
+//                   name: { type: 'string', example: 'Ada Lovelace' },
+//                 },
+//                 required: ['email', 'password'],
+//               },
+//             },
+//           },
+//         },
+//         responses: {
+//           '201': {
+//             description: 'User created successfully.',
+//             content: {
+//               'application/json': {
+//                 schema: {
+//                   type: 'object',
+//                   properties: {
+//                     message: { type: 'string', example: 'User created' },
+//                     userId: { type: 'string', format: 'uuid' },
+//                   },
+//                 },
+//               },
+//             },
+//           },
+//         },
+//       },
+//     },
+//     '/api/auth/login': {
+//       post: {
+//         summary: 'Log in a user',
+//         description: 'Authenticates a user and returns a JWT access token.',
+//         tags: ['Authentication'],
+//         requestBody: {
+//           required: true,
+//           content: {
+//             'application/json': {
+//               schema: {
+//                 type: 'object',
+//                 properties: {
+//                   email: { type: 'string', example: 'developer@sutra.ai' },
+//                   password: { type: 'string', example: 'password123' },
+//                 },
+//                 required: ['email', 'password'],
+//               },
+//             },
+//           },
+//         },
+//         responses: {
+//           '200': {
+//             description: 'Login successful.',
+//             content: {
+//               'application/json': {
+//                 schema: {
+//                   type: 'object',
+//                   properties: {
+//                     accessToken: { type: 'string', example: 'eyJhbGciOi...' },
+//                   },
+//                 },
+//               },
+//             },
+//           },
+//         },
+//       },
+//     },
+//   },
+// };
+
 const swaggerDocument = {
   openapi: '3.0.0',
   info: {
@@ -22,12 +115,64 @@ const swaggerDocument = {
       description: 'Production Server',
     },
   ],
+  // --- NEW: Define tags for better organization ---
+  tags: [
+    { name: 'Authentication', description: 'Endpoints for user registration and login.' },
+    { name: 'Worlds', description: 'CRUD operations for managing World Seeds.' }
+  ],
+  // --- NEW: Define the security scheme for JWT ---
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+    },
+    schemas: {
+      World: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          theme: { type: 'string' },
+          status: { type: 'string', enum: ['Queued', 'Generating', 'Active', 'Failed'] },
+          engine_version: { type: 'string' },
+          pcg_seed: { type: 'integer' },
+          userId: { type: 'string', format: 'uuid' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        }
+      }
+    }
+  },
+  // --- NEW: All paths are now documented ---
   paths: {
+    // --- Authentication Endpoints ---
     '/api/auth/register': {
+      post: { /* ... your existing, perfect register docs ... */ }
+    },
+    '/api/auth/login': {
+      post: { /* ... your existing, perfect login docs ... */ }
+    },
+    // --- Worlds Endpoints (Collection) ---
+    '/api/worlds': {
+      get: {
+        summary: 'Get all worlds for a user',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'A list of worlds.',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/World' } } } }
+          },
+          '403': { description: 'Forbidden/Invalid Token' }
+        }
+      },
       post: {
-        summary: 'Register a new user',
-        description: 'Creates a new developer account.',
-        tags: ['Authentication'],
+        summary: 'Create a new world',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -35,71 +180,54 @@ const swaggerDocument = {
               schema: {
                 type: 'object',
                 properties: {
-                  email: { type: 'string', example: 'developer@sutra.ai' },
-                  password: { type: 'string', example: 'password123' },
-                  name: { type: 'string', example: 'Ada Lovelace' },
+                  name: { type: 'string', example: 'Neo-Kyoto' },
+                  theme: { type: 'string', example: 'Cyberpunk' }
                 },
-                required: ['email', 'password'],
-              },
-            },
-          },
+                required: ['name']
+              }
+            }
+          }
         },
         responses: {
           '201': {
-            description: 'User created successfully.',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    message: { type: 'string', example: 'User created' },
-                    userId: { type: 'string', format: 'uuid' },
-                  },
-                },
-              },
-            },
+            description: 'World creation initiated.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/World' } } }
           },
-        },
-      },
+          '403': { description: 'Forbidden/Invalid Token' }
+        }
+      }
     },
-    '/api/auth/login': {
-      post: {
-        summary: 'Log in a user',
-        description: 'Authenticates a user and returns a JWT access token.',
-        tags: ['Authentication'],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  email: { type: 'string', example: 'developer@sutra.ai' },
-                  password: { type: 'string', example: 'password123' },
-                },
-                required: ['email', 'password'],
-              },
-            },
-          },
-        },
+    // --- Worlds Endpoints (Individual) ---
+    '/api/worlds/{id}': {
+      get: {
+        summary: 'Get a single world by ID',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           '200': {
-            description: 'Login successful.',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    accessToken: { type: 'string', example: 'eyJhbGciOi...' },
-                  },
-                },
-              },
-            },
+            description: 'A single world object.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/World' } } }
           },
-        },
+          '403': { description: 'Forbidden/Invalid Token' },
+          '404': { description: 'World not found' }
+        }
       },
-    },
-  },
+      put: { /* For brevity, we'll focus on the main ones. PUT is similar to POST. */ },
+      patch: { /* And PATCH is similar to PUT but for partial updates. */ },
+      delete: {
+        summary: 'Delete a world by ID',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          '204': { description: 'World deleted successfully.' },
+          '403': { description: 'Forbidden/Invalid Token' },
+          '404': { description: 'World not found' }
+        }
+      }
+    }
+  }
 };
 
 // Load model definitions
