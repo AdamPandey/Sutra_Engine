@@ -10,7 +10,7 @@ const swaggerDocument = {
   openapi: '3.0.0',
   info: {
     title: 'Sutra Engine Core API',
-    description: 'Comprehensive API for managing AI-generated game worlds, titles, and related assets for Krida Studios.',
+    description: 'Comprehensive API for managing AI-generated game worlds, titles, and related assets for Krida Studios. This documentation provides a clear and interactive guide to all available endpoints, models, and their relationships.',
     version: '1.0.0',
   },
   servers: [{ url: 'https://sutra-engine.onrender.com', description: 'Production Server' }],
@@ -25,7 +25,7 @@ const swaggerDocument = {
     { name: 'Diagnostics', description: 'Manage system logs and events.' }
   ],
   components: {
-    securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+    securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Enter your JWT in the format: Bearer {token}' } },
     schemas: {
       Game: {
         type: 'object',
@@ -33,7 +33,12 @@ const swaggerDocument = {
           id: { type: 'string', format: 'uuid' },
           title: { type: 'string', example: 'Hustle Jack' },
           description: { type: 'string', example: 'An escape-room puzzle adventure.' },
-          userId: { type: 'string', format: 'uuid' }
+          version: { type: 'string', example: '0.1.0' },
+          status: { type: 'string', example: 'In Development' },
+          imageUrl: { type: 'string', format: 'uri', nullable: true },
+          userId: { type: 'string', format: 'uuid' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
         }
       },
       World: {
@@ -42,9 +47,21 @@ const swaggerDocument = {
           id: { type: 'string', format: 'uuid' },
           name: { type: 'string', example: 'Neo-Kyoto' },
           theme: { type: 'string', example: 'Cyberpunk' },
+          description: { type: 'string', nullable: true },
+          thumbnailUrl: { type: 'string', format: 'uri', nullable: true },
           status: { type: 'string', enum: ['Queued', 'Generating', 'Active', 'Failed'] },
           gameId: { type: 'string', format: 'uuid', nullable: true },
-          userId: { type: 'string', format: 'uuid' }
+          userId: { type: 'string', format: 'uuid' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
+        }
+      },
+      WorldContent: {
+        type: 'object',
+        properties: {
+          quests: { type: 'array', items: { type: 'object' }, example: [{ "id": "q1", "name": "Retrieve the Data Shard" }] },
+          characters: { type: 'array', items: { type: 'object' }, example: [{ "id": "char1", "name": "Kaito" }] },
+          puzzles: { type: 'array', items: { type: 'object' }, example: [{ "id": "puz1", "type": "Circuit Breaker" }] },
         }
       },
       Genre: {
@@ -67,7 +84,9 @@ const swaggerDocument = {
           id: { type: 'string', format: 'uuid' },
           eventType: { type: 'string', example: 'GENERATION_SUCCESS' },
           logMessage: { type: 'string', example: 'World 51ca82b4 generated successfully.' },
-          worldId: { type: 'string', format: 'uuid', nullable: true }
+          worldId: { type: 'string', format: 'uuid', nullable: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
         }
       }
     }
@@ -95,7 +114,7 @@ const swaggerDocument = {
       delete: { summary: 'Delete a world by ID', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'World deleted. No body returned.' } } }
     },
     '/api/worlds/{id}/content': {
-      get: { summary: 'Get Generated AI Content for a World (MongoDB)', tags: ['World Content'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Generated content.' } } }
+      get: { summary: 'Get Generated AI Content for a World (MongoDB)', tags: ['World Content'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Generated content.', content: { 'application/json': { schema: { $ref: '#/components/schemas/WorldContent' } } } } } }
     },
     '/api/genres': {
       get: { summary: 'Get all genres', tags: ['Genres'], responses: { '200': { description: 'List of genres.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Genre' } } } } } } },
