@@ -5,9 +5,14 @@ const { sequelize, connectMongo } = require('./config/db');
 const { apiReference } = require('@scalar/express-api-reference');
 
 // --- THE FINAL, FEATURE-COMPLETE SWAGGER/OPENAPI DOCUMENT ---
+// --- THIS IS THE FINAL, FULLY-DESCRIBED SWAGGER/OPENAPI DOCUMENT ---
 const swaggerDocument = {
   openapi: '3.0.0',
-  info: { title: 'Sutra Engine Core API', description: 'Comprehensive API for managing AI-generated game worlds, titles, and related assets for Krida Studios.', version: '1.0.0' },
+  info: {
+    title: 'Sutra Engine Core API',
+    description: 'Comprehensive API for managing AI-generated game worlds, titles, and related assets for Krida Studios.',
+    version: '1.0.0',
+  },
   servers: [{ url: 'https://sutra-engine.onrender.com', description: 'Production Server' }],
   tags: [
     { name: 'Index', description: 'The root health-check endpoint.' },
@@ -21,57 +26,102 @@ const swaggerDocument = {
   ],
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+    schemas: {
+      Game: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          title: { type: 'string', example: 'Hustle Jack' },
+          description: { type: 'string', example: 'An escape-room puzzle adventure.' },
+          userId: { type: 'string', format: 'uuid' }
+        }
+      },
+      World: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          name: { type: 'string', example: 'Neo-Kyoto' },
+          theme: { type: 'string', example: 'Cyberpunk' },
+          status: { type: 'string', enum: ['Queued', 'Generating', 'Active', 'Failed'] },
+          gameId: { type: 'string', format: 'uuid', nullable: true },
+          userId: { type: 'string', format: 'uuid' }
+        }
+      },
+      Genre: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          name: { type: 'string', example: 'Puzzle Adventure' }
+        }
+      },
+      Platform: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          name: { type: 'string', example: 'Android' }
+        }
+      },
+      Diagnostic: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          eventType: { type: 'string', example: 'GENERATION_SUCCESS' },
+          logMessage: { type: 'string', example: 'World 51ca82b4 generated successfully.' },
+          worldId: { type: 'string', format: 'uuid', nullable: true }
+        }
+      }
+    }
   },
   paths: {
     '/': { get: { summary: 'API Health Check', tags: ['Index'], responses: { '200': { description: 'API is online.' } } } },
-    '/api/auth/register': { post: { summary: 'Register a new user', tags: ['Authentication'], responses: { '201': { description: 'User created.' } } } },
-    '/api/auth/login': { post: { summary: 'Log in a user', tags: ['Authentication'], responses: { '200': { description: 'Login successful.' } } } },
+    '/api/auth/register': { post: { summary: 'Register a new user', tags: ['Authentication'], responses: { '201': { description: 'User created.', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' }, userId: { type: 'string', format: 'uuid' } } } } } } } } },
+    '/api/auth/login': { post: { summary: 'Log in a user', tags: ['Authentication'], responses: { '200': { description: 'Login successful.', content: { 'application/json': { schema: { type: 'object', properties: { accessToken: { type: 'string' } } } } } } } } },
     '/api/games': {
-      get: { summary: 'Get all games for a user', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of games.' } } },
-      post: { summary: 'Create a new game', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Game created.' } } }
+      get: { summary: 'Get all games for a user', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of games.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Game' } } } } } } },
+      post: { summary: 'Create a new game', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Game created.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Game' } } } } } }
     },
     '/api/games/{id}': {
-      get: { summary: 'Get a single game by ID', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Single game.' } } },
-      patch: { summary: 'Update a game (partial)', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Game updated.' } } },
-      delete: { summary: 'Delete a game by ID', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Game deleted.' } } }
+      get: { summary: 'Get a single game by ID', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Single game.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Game' } } } } } },
+      patch: { summary: 'Update a game (partial)', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Game updated.', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } } } } },
+      delete: { summary: 'Delete a game by ID', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Game deleted. No body returned.' } } }
     },
     '/api/worlds': {
-      get: { summary: 'Get all worlds for a user', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of worlds.' } } },
-      post: { summary: 'Create a new world', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'World creation initiated.' } } }
+      get: { summary: 'Get all worlds for a user', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of worlds.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/World' } } } } } } },
+      post: { summary: 'Create a new world', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'World creation initiated.', content: { 'application/json': { schema: { $ref: '#/components/schemas/World' } } } } } }
     },
     '/api/worlds/{id}': {
-      get: { summary: 'Get a single world by ID', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Single world.' } } },
+      get: { summary: 'Get a single world by ID', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Single world.', content: { 'application/json': { schema: { $ref: '#/components/schemas/World' } } } } } },
       patch: { summary: 'Update a world (partial)', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'World updated.' } } },
-      delete: { summary: 'Delete a world by ID', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'World deleted.' } } }
+      delete: { summary: 'Delete a world by ID', tags: ['Worlds'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'World deleted. No body returned.' } } }
     },
     '/api/worlds/{id}/content': {
       get: { summary: 'Get Generated AI Content for a World (MongoDB)', tags: ['World Content'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Generated content.' } } }
     },
     '/api/genres': {
-      get: { summary: 'Get all genres', tags: ['Genres'], responses: { '200': { description: 'List of genres.' } } },
-      post: { summary: 'Create a new genre', tags: ['Genres'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Genre created.' } } }
+      get: { summary: 'Get all genres', tags: ['Genres'], responses: { '200': { description: 'List of genres.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Genre' } } } } } } },
+      post: { summary: 'Create a new genre', tags: ['Genres'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Genre created.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Genre' } } } } } }
     },
     '/api/genres/{id}': {
-      get: { summary: 'Get a single genre by ID', tags: ['Genres'], responses: { '200': { description: 'Single genre.' } } },
+      get: { summary: 'Get a single genre by ID', tags: ['Genres'], responses: { '200': { description: 'Single genre.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Genre' } } } } } },
       patch: { summary: 'Update a genre', tags: ['Genres'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Genre updated.' } } },
-      delete: { summary: 'Delete a genre', tags: ['Genres'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Genre deleted.' } } }
+      delete: { summary: 'Delete a genre', tags: ['Genres'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Genre deleted. No body returned.' } } }
     },
     '/api/platforms': {
-      get: { summary: 'Get all platforms', tags: ['Platforms'], responses: { '200': { description: 'List of platforms.' } } },
-      post: { summary: 'Create a new platform', tags: ['Platforms'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Platform created.' } } }
+      get: { summary: 'Get all platforms', tags: ['Platforms'], responses: { '200': { description: 'List of platforms.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Platform' } } } } } } },
+      post: { summary: 'Create a new platform', tags: ['Platforms'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Platform created.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Platform' } } } } } }
     },
     '/api/platforms/{id}': {
-      get: { summary: 'Get a single platform by ID', tags: ['Platforms'], responses: { '200': { description: 'Single platform.' } } },
+      get: { summary: 'Get a single platform by ID', tags: ['Platforms'], responses: { '200': { description: 'Single platform.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Platform' } } } } } },
       patch: { summary: 'Update a platform', tags: ['Platforms'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Platform updated.' } } },
-      delete: { summary: 'Delete a platform', tags: ['Platforms'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Platform deleted.' } } }
+      delete: { summary: 'Delete a platform', tags: ['Platforms'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Platform deleted. No body returned.' } } }
     },
     '/api/diagnostics': {
-      get: { summary: 'Get all diagnostic logs', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of logs.' } } },
-      post: { summary: 'Create a new diagnostic log', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Log created.' } } }
+      get: { summary: 'Get all diagnostic logs', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of logs.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Diagnostic' } } } } } } },
+      post: { summary: 'Create a new diagnostic log', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Log created.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Diagnostic' } } } } } }
     },
     '/api/diagnostics/{id}': {
-      get: { summary: 'Get a single diagnostic by ID', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Single log.' } } },
-      delete: { summary: 'Delete a diagnostic', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Log deleted.' } } }
+      get: { summary: 'Get a single diagnostic by ID', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'Single log.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Diagnostic' } } } } } },
+      delete: { summary: 'Delete a diagnostic', tags: ['Diagnostics'], security: [{ bearerAuth: [] }], responses: { '204': { description: 'Log deleted. No body returned.' } } }
     }
   }
 };
