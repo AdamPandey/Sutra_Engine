@@ -24,6 +24,11 @@ const swaggerDocument = {
     { name: 'Platforms', description: 'Manage the supported game platforms.' },
     { name: 'Diagnostics', description: 'Manage system logs and events.' }
   ],
+  security: [
+    {
+      bearerAuth: []
+    }
+  ],
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Enter your JWT in the format: Bearer {token}' } },
     schemas: {
@@ -92,9 +97,9 @@ const swaggerDocument = {
     }
   },
   paths: {
-    '/': { get: { summary: 'API Health Check', tags: ['Index'], responses: { '200': { description: 'API is online.' } } } },
-    '/api/auth/register': { post: { summary: 'Register a new user', tags: ['Authentication'], responses: { '201': { description: 'User created.', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' }, userId: { type: 'string', format: 'uuid' } } } } } } } } },
-    '/api/auth/login': { post: { summary: 'Log in a user', tags: ['Authentication'], responses: { '200': { description: 'Login successful.', content: { 'application/json': { schema: { type: 'object', properties: { accessToken: { type: 'string' } } } } } } } } },
+    '/': { get: { summary: 'API Health Check', tags: ['Index'], security: [], responses: { '200': { description: 'API is online.' } } } },
+    '/api/auth/register': { post: { summary: 'Register a new user', tags: ['Authentication'], security: [], responses: { '201': { description: 'User created.', content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' }, userId: { type: 'string', format: 'uuid' } } } } } } } } },
+    '/api/auth/login': { post: { summary: 'Log in a user', tags: ['Authentication'], security: [], security: [], responses: { '200': { description: 'Login successful.', content: { 'application/json': { schema: { type: 'object', properties: { accessToken: { type: 'string' } } } } } } } } },
     '/api/games': {
       get: { summary: 'Get all games for a user', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '200': { description: 'List of games.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Game' } } } } } } },
       post: { summary: 'Create a new game', tags: ['Games'], security: [{ bearerAuth: [] }], responses: { '201': { description: 'Game created.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Game' } } } } } }
