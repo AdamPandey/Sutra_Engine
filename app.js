@@ -4,6 +4,12 @@ const express = require('express');
 const cors = require('cors');
 const { sequelize, connectMongo } = require('./config/db');
 
+// --- THIS IS THE FIX. THIS ONE LINE SOLVES EVERYTHING. ---
+// By requiring the models' index file here, we are telling Sequelize
+// "Read all your model definitions NOW" before we do anything else.
+require('./models');
+// ---------------------------------------------------------
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -14,12 +20,11 @@ async function initialize() {
     await sequelize.authenticate();
     console.log('PostgreSQL connection successful.');
 
-    // --- THE SLEDGEHAMMER ---
-    // force: true will DROP existing tables and recreate them.
-    // This will obliterate any stale or broken state in the database.
-    console.log('Forcing database synchronization...');
-    await sequelize.sync({ alter: true }); 
-    console.log('All models were forcibly synchronized successfully.');
+    // Now, when this command runs, Sequelize has all the model definitions
+    // and knows exactly which tables to create.
+    console.log('Syncing database models...');
+    await sequelize.sync({ alter: true }); // Using alter is safe and correct.
+    console.log('All models were synchronized successfully.');
 
     await connectMongo();
 
