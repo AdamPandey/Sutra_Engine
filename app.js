@@ -3,24 +3,122 @@
 const express = require('express');
 const cors = require('cors');
 const { sequelize, connectMongo } = require('./config/db');
-const swaggerUi = require('swagger-ui-express'); // <-- ADD THIS
-const YAML = require('yamljs');                   // <-- ADD THIS
 
-// Load the OpenAPI specification
-const swaggerDocument = YAML.load('./swagger.yaml'); // <-- ADD THIS
+// IMPORT THE NEW SCALAR MIDDLEWARE
+const apiReference = require('@scalar/express-api-reference');
 
-// By requiring the models' index file here, we ensure Sequelize knows about them.
+// THE COMPLETE SWAGGER/OPENAPI DOCUMENT OBJECT
+// This is the blueprint for your API.
+const swaggerDocument = {
+  openapi: '3.0.0',
+  info: {
+    title: 'Sutra Engine Core API',
+    description: 'The backend API for the Sutra Hub, a platform for managing AI-generated game worlds.',
+    version: '1.0.0',
+  },
+  servers: [
+    {
+      url: 'https://sutra-engine.onrender.com',
+      description: 'Production Server',
+    },
+  ],
+  paths: {
+    '/api/auth/register': {
+      post: {
+        summary: 'Register a new user',
+        description: 'Creates a new developer account.',
+        tags: ['Authentication'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  email: { type: 'string', example: 'developer@sutra.ai' },
+                  password: { type: 'string', example: 'password123' },
+                  name: { type: 'string', example: 'Ada Lovelace' },
+                },
+                required: ['email', 'password'],
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'User created successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'User created' },
+                    userId: { type: 'string', format: 'uuid' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/auth/login': {
+      post: {
+        summary: 'Log in a user',
+        description: 'Authenticates a user and returns a JWT access token.',
+        tags: ['Authentication'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  email: { type: 'string', example: 'developer@sutra.ai' },
+                  password: { type: 'string', example: 'password123' },
+                },
+                required: ['email', 'password'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Login successful.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    accessToken: { type: 'string', example: 'eyJhbGciOi...' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    // We will add the /api/worlds endpoints here in the next step
+  },
+};
+
+// Load model definitions
 require('./models');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- THIS IS THE NEW PART ---
-// Serve the interactive API documentation at the /api-docs endpoint
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-// ----------------------------
+// THIS IS THE SCALAR UPGRADE
+// Use the new middleware to serve the beautiful documentation.
+app.use('/api-docs', apiReference({
+  spec: {
+    content: swaggerDocument,
+  },
+}));
 
+// The rest of your application startup logic remains unchanged. It is perfect.
 async function initialize() {
   try {
     console.log('Authenticating database connection...');
@@ -49,7 +147,7 @@ async function initialize() {
       console.log(`Server is running on port ${PORT}. Application is ready.`);
     });
 
-  } catch (err){
+  } catch (err) {
     console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
     console.error('!!!    APPLICATION FAILED TO START   !!!');
     console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
