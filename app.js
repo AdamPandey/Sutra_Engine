@@ -149,7 +149,17 @@ require('./models');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/api-docs', apiReference({ spec: { content: swaggerDocument } }));
+app.use(express.static('public'));
+
+// THIS IS THE FINAL CUSTOMIZATION FOR SCALAR
+app.use('/api-docs', apiReference({
+  spec: {
+    content: swaggerDocument,
+  },
+  // Add these options to customize the branding
+  customPageTitle: 'Sutra Engine API', // This will be the browser tab name
+  customFavicon: '/images/krida-logo.png' // The path to your logo inside the 'public' folder
+}));
 
 async function initialize() {
   try {
