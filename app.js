@@ -18,7 +18,7 @@ async function initialize() {
     // force: true will DROP existing tables and recreate them.
     // This will obliterate any stale or broken state in the database.
     console.log('Forcing database synchronization...');
-    await sequelize.sync({ force: true }); 
+    await sequelize.sync({ alter: true }); 
     console.log('All models were forcibly synchronized successfully.');
 
     await connectMongo();
