@@ -237,21 +237,33 @@ const swaggerDocument = {
     description: 'The backend API for the Sutra Hub, a platform for managing AI-generated game worlds. This documentation provides a clear and interactive guide to all available endpoints and data models.',
     version: '1.0.0',
   },
-  servers: [ { url: 'https://sutra-engine.onrender.com', description: 'Production Server' } ],
+  servers: [
+    {
+      url: 'https://sutra-engine.onrender.com',
+      description: 'Production Server',
+    },
+  ],
+  // --- This is how we create the groups for the sidebar ---
   tags: [
     { name: 'Index', description: 'The root health-check endpoint.' },
     { name: 'Authentication', description: 'Endpoints for user registration and login.' },
     { name: 'Worlds', description: 'Core CRUD operations for managing World Seeds in the primary PostgreSQL database.' },
     { name: 'World Content', description: 'Endpoints for retrieving rich, AI-generated content from the secondary MongoDB database.' }
   ],
+  // --- This defines our data models and security ---
   components: {
     securitySchemes: {
-      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter your JWT token in the format: Bearer {token}'
+      },
     },
     schemas: {
       User: {
         type: 'object',
-        description: 'Represents a developer account in the system.',
+        description: 'Represents a developer account in the system (stored in PostgreSQL).',
         properties: {
           id: { type: 'string', format: 'uuid', description: 'Primary Key' },
           email: { type: 'string', format: 'email' },
@@ -263,9 +275,9 @@ const swaggerDocument = {
         description: "Represents a 'World Seed' in the PostgreSQL database. This is the core relational object.\n\n**Relationships:**\n- `belongsTo`: User\n- `hasOne`: WorldContent (in MongoDB)\n- `hasMany`: GameSessions, WorldAssets, GenerationMetrics (all handled via cascading deletes).",
         properties: {
           id: { type: 'string', format: 'uuid', description: 'Primary Key' },
-          name: { type: 'string' },
-          theme: { type: 'string' },
-          status: { type: 'string', enum: ['Queued', 'Generating', 'Active', 'Failed'] },
+          name: { type: 'string', example: 'Neo-Kyoto' },
+          theme: { type: 'string', example: 'Cyberpunk' },
+          status: { type: 'string', enum: ['Queued', 'Generating', 'Active', 'Failed'], example: 'Active' },
           userId: { type: 'string', format: 'uuid', description: 'Foreign Key referencing the User owner.' },
         }
       },
@@ -273,16 +285,118 @@ const swaggerDocument = {
         type: 'object',
         description: 'Represents the large, unstructured AI-generated content for a world, stored in MongoDB.',
         properties: {
-          quests: { type: 'array', items: { type: 'object' } },
-          characters: { type: 'array', items: { type: 'object' } },
-          puzzles: { type: 'array', items: { type: 'object' } },
+          quests: { type: 'array', items: { type: 'object' }, example: [{ "id": "q1", "name": "Retrieve the Data Shard" }] },
+          characters: { type: 'array', items: { type: 'object' }, example: [{ "id": "char1", "name": "Kaito" }] },
+          puzzles: { type: 'array', items: { type: 'object' }, example: [{ "id": "puz1", "type": "Circuit Breaker" }] },
         }
       }
     }
   },
+  // --- This defines all the endpoints, now properly tagged and complete ---
   paths: {
-    // ... all your previous path definitions for Auth and Worlds are still here and correct ...
-    // --- THIS IS THE NEW ENDPOINT DOCUMENTATION ---
+    '/': {
+      get: {
+        summary: 'API Health Check',
+        tags: ['Index'],
+        responses: { '200': { description: 'Returns a success message confirming the API is online.' } }
+      }
+    },
+    '/api/auth/register': {
+      post: {
+        summary: 'Register a new user',
+        tags: ['Authentication'],
+        requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object', properties: {
+            email: { type: 'string', example: 'developer@sutra.ai' },
+            password: { type: 'string', example: 'password123' },
+            name: { type: 'string', example: 'Ada Lovelace' },
+          }, required: ['email', 'password'],
+        }}}},
+        responses: { '201': { description: 'User created successfully.' } }
+      },
+    },
+    '/api/auth/login': {
+      post: {
+        summary: 'Log in a user',
+        tags: ['Authentication'],
+        requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object', properties: {
+            email: { type: 'string', example: 'developer@sutra.ai' },
+            password: { type: 'string', example: 'password123' },
+          }, required: ['email', 'password'],
+        }}}},
+        responses: { '200': { description: 'Login successful, returns an access token.' } }
+      },
+    },
+    '/api/worlds': {
+      get: {
+        summary: 'Get all worlds for a user',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': { description: 'A list of worlds.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/World' } } } } },
+          '403': { description: 'Forbidden/Invalid Token' }
+        }
+      },
+      post: {
+        summary: 'Create a new world',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object', properties: {
+            name: { type: 'string', example: 'Ashen Kingdom' },
+            theme: { type: 'string', example: 'Dark Fantasy' }
+          }, required: ['name']
+        }}}},
+        responses: {
+          '201': { description: 'World creation initiated.', content: { 'application/json': { schema: { $ref: '#/components/schemas/World' } } } },
+          '403': { description: 'Forbidden/Invalid Token' }
+        }
+      }
+    },
+    '/api/worlds/{id}': {
+      get: {
+        summary: 'Get a single world by ID',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, description: 'The UUID of the world.', schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          '200': { description: 'A single world object.', content: { 'application/json': { schema: { $ref: '#/components/schemas/World' } } } },
+          '403': { description: 'Forbidden/Invalid Token' },
+          '404': { description: 'World not found' }
+        }
+      },
+      put: {
+        summary: 'Update a world (full update)',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: { content: { 'application/json': { schema: {
+          type: 'object', properties: {
+            name: { type: 'string' },
+            theme: { type: 'string' }
+          }
+        }}}},
+        responses: { '200': { description: 'World updated successfully.' } }
+      },
+      patch: {
+        summary: 'Update a world (partial update)',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: { content: { 'application/json': { schema: {
+          type: 'object', properties: { status: { type: 'string', example: 'Active' } }
+        }}}},
+        responses: { '200': { description: 'World patched successfully.' } }
+      },
+      delete: {
+        summary: 'Delete a world by ID',
+        tags: ['Worlds'],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { '204': { description: 'World deleted successfully.' } }
+      }
+    },
     '/api/worlds/{id}/content': {
       get: {
         summary: 'Get Generated Content for a World',
