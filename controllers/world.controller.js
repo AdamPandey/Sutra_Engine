@@ -82,6 +82,31 @@ exports.getOneWorld = async (req, res) => {
   }
 };
 
+exports.getWorldContent = async (req, res) => {
+  try {
+    // First, confirm the world exists and the user owns it (security check)
+    const world = await World.findOne({
+      where: { id: req.params.id, userId: req.userId },
+    });
+
+    if (!world) {
+      return res.status(404).json({ message: "World not found or unauthorized" });
+    }
+
+    // Now, fetch the corresponding content from MongoDB
+    const worldContent = await WorldContent.findOne({ worldId: req.params.id });
+
+    if (!worldContent) {
+      return res.status(404).json({ message: "Generated content for this world not found." });
+    }
+
+    res.json(worldContent.generatedContent);
+  } catch (error) {
+    console.error("Get world content failed:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // UPDATE (PUT) — Full Replace
 exports.updateWorld = async (req, res) => {
   try {
