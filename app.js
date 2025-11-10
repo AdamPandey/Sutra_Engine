@@ -4,11 +4,11 @@ const express = require('express');
 const cors = require('cors');
 const { sequelize, connectMongo } = require('./config/db');
 
-// IMPORT THE NEW SCALAR MIDDLEWARE
-const apiReference = require('@scalar/express-api-reference');
+// --- THIS IS THE FIX ---
+// The 'apiReference' function is a NAMED EXPORT, so it MUST be in curly braces.
+const { apiReference } = require('@scalar/express-api-reference');
 
-// THE COMPLETE SWAGGER/OPENAPI DOCUMENT OBJECT
-// This is the blueprint for your API.
+// The complete Swagger/OpenAPI document object. This part is perfect.
 const swaggerDocument = {
   openapi: '3.0.0',
   info: {
@@ -99,7 +99,6 @@ const swaggerDocument = {
         },
       },
     },
-    // We will add the /api/worlds endpoints here in the next step
   },
 };
 
@@ -110,8 +109,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// THIS IS THE SCALAR UPGRADE
-// Use the new middleware to serve the beautiful documentation.
+// Use the Scalar middleware to serve the beautiful documentation.
 app.use('/api-docs', apiReference({
   spec: {
     content: swaggerDocument,
